@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Meu Caminho na Cidade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #e8f5e9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+
+  /* HEADER */
+  .header { width:100%; background:linear-gradient(135deg,#1b5e20,#2e7d32,#388e3c); padding:12px 20px 10px; text-align:center; box-shadow:0 3px 12px rgba(0,0,0,0.2); }
+  .header-guide { display:flex; align-items:center; justify-content:center; gap:12px; }
+  .robot { font-size:38px; animation:wave 2.5s ease-in-out infinite; display:inline-block; }
+  @keyframes wave { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
+  .bubble { background:#fff; border-radius:14px; padding:8px 14px; font-size:13px; font-weight:700; color:#1b5e20; box-shadow:0 2px 8px rgba(0,0,0,0.12); max-width:320px; line-height:1.4; position:relative; text-transform:uppercase; letter-spacing:0.5px; }
+  .bubble::before { content:''; position:absolute; left:-10px; top:50%; transform:translateY(-50%); border:6px solid transparent; border-right-color:#fff; }
+
+  /* TWO-COLUMN */
+  .two-col { width:100%; max-width:1200px; display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:12px 14px 0; align-items:start; }
+  @media(max-width:700px){ .two-col{ grid-template-columns:1fr; } }
+
+  /* LEFT — MAP */
+  .col-map { display:flex; flex-direction:column; gap:10px; }
+  .col-title { background:#2e7d32; color:#fff; font-size:12px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; padding:7px 14px; border-radius:10px; }
+  .instruction { display:flex; align-items:center; gap:8px; }
+  .inst-step { display:flex; align-items:center; gap:5px; background:#fff; border-radius:20px; padding:5px 12px; font-size:12px; font-weight:800; box-shadow:0 2px 6px rgba(0,0,0,0.1); border:2px solid #c8e6c9; text-transform:uppercase; letter-spacing:0.5px; }
+  .inst-step.active { border-color:#43a047; background:#f1f8e9; }
+  .inst-step.done   { border-color:#aed581; opacity:0.6; }
+  .step-num { width:20px; height:20px; background:#43a047; color:#fff; border-radius:50%; font-size:11px; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .inst-step.done .step-num { background:#aed581; }
+  canvas#map-canvas { width:100%; border-radius:16px; display:block; touch-action:none; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.15); }
+  .path-box { background:#fff; border-radius:12px; padding:9px 14px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border:3px solid #c8e6c9; display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:50px; transition:border-color 0.3s; }
+  .path-box.has-path { border-color:#43a047; background:#f1f8e9; }
+  .path-hint { font-size:12px; color:#aaa; font-weight:700; text-transform:uppercase; }
+  .path-node { font-size:24px; display:inline-flex; align-items:center; animation:popIn 0.3s ease; }
+  @keyframes popIn { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+  .path-arrow { font-size:14px; color:#43a047; font-weight:900; }
+  .dist-badge { margin-left:auto; background:#43a047; color:#fff; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:900; white-space:nowrap; }
+  .btn-row { display:flex; gap:8px; }
+  .btn { border:none; border-radius:12px; padding:9px 20px; font-size:17px; cursor:pointer; font-weight:800; box-shadow:0 3px 10px rgba(0,0,0,0.15); transition:transform 0.1s,filter 0.15s; }
+  .btn:hover { filter:brightness(1.08); transform:scale(1.04); }
+  .btn:active { transform:scale(0.96); }
+  .btn-reset { background:#ef5350; color:#fff; }
+  .btn-hint  { background:#ffa726; color:#fff; }
+
+  /* RIGHT — QUIZ */
+  .col-quiz { display:flex; flex-direction:column; }
+  .quiz-header { background:#1b5e20; color:#fff; border-radius:14px 14px 0 0; padding:11px 16px; }
+  .quiz-header-title { font-size:13px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
+  .quiz-header-sub   { font-size:11px; color:#a5d6a7; font-weight:700; margin-top:3px; letter-spacing:0.5px; }
+  .quiz-body { background:#fff; border:3px solid #1b5e20; border-top:none; border-radius:0 0 14px 14px; padding:14px; }
+
+  .q-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+  .q-counter { font-size:11px; font-weight:900; color:#888; text-transform:uppercase; letter-spacing:1px; }
+  .q-pts     { font-size:11px; font-weight:900; color:#1b5e20; }
+  .q-bar  { background:#e8f5e9; border-radius:8px; height:8px; margin-bottom:12px; overflow:hidden; }
+  .q-fill { background:#43a047; height:100%; border-radius:8px; transition:width 0.4s; }
+
+  .q-text {
+    font-size:16px; font-weight:900; color:#1b5e20;
+    text-transform:uppercase; letter-spacing:0.5px; line-height:1.5;
+    margin-bottom:14px; padding:12px 14px;
+    background:#f1f8e9; border-radius:12px; border-left:5px solid #43a047;
+  }
+
+  .opts-col { display:flex; flex-direction:column; gap:9px; }
+  .opt-btn {
+    background:#fff; border:3px solid #c8e6c9; border-radius:13px;
+    padding:12px 16px; cursor:pointer; text-align:left; width:100%;
+    font-family:inherit; transition:border-color 0.15s,background 0.15s;
+  }
+  .opt-btn:hover:not(:disabled) { border-color:#43a047; background:#f1f8e9; }
+  .opt-btn:disabled { cursor:default; }
+  .opt-label {
+    font-size:14px; font-weight:900; color:#1b5e20;
+    text-transform:uppercase; letter-spacing:0.5px; line-height:1.45;
+    display:block;
+  }
+  .opt-btn.correct { border-color:#43a047 !important; background:#e8f5e9 !important; }
+  .opt-btn.wrong   { border-color:#ef5350 !important; background:#ffebee !important; }
+  .opt-btn.correct .opt-label { color:#1b5e20; }
+  .opt-btn.wrong   .opt-label { color:#c62828; }
+
+  .q-feedback { display:none; margin-top:10px; border-radius:11px; padding:9px 13px; font-size:13px; font-weight:900; text-transform:uppercase; text-align:center; letter-spacing:0.5px; }
+  .q-feedback.ok   { display:block; background:#e8f5e9; color:#1b5e20; border:2px solid #43a047; }
+  .q-feedback.fail { display:block; background:#ffebee; color:#c62828; border:2px solid #ef5350; }
+
+  /* SCORE FINAL */
+  .score-final { display:none; text-align:center; padding:24px 10px; }
+  .sc-trophy { font-size:64px; }
+  .sc-nota   { font-size:42px; font-weight:900; color:#1b5e20; margin:8px 0; }
+  .sc-stars  { font-size:30px; letter-spacing:4px; margin-bottom:12px; }
+  .sc-msg    { font-size:14px; font-weight:900; color:#333; text-transform:uppercase; letter-spacing:0.5px; background:#f1f8e9; border-radius:12px; padding:12px; line-height:1.4; }
+  .btn-retry { margin-top:14px; background:#ef5350; color:#fff; border:none; border-radius:12px; padding:11px 26px; font-size:16px; font-weight:900; cursor:pointer; font-family:inherit; }
+
+  /* CELEBRATE */
+  .celebrate { position:fixed; inset:0; pointer-events:none; z-index:99; display:flex; align-items:center; justify-content:center; font-size:80px; opacity:0; transition:opacity 0.3s; }
+  .celebrate.show { opacity:1; }
+  .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:98; overflow:hidden; }
+  .conf { position:absolute; width:10px; height:14px; border-radius:3px; opacity:0; animation:fall 1.4s ease forwards; }
+  @keyframes fall { 0%{opacity:1;transform:translateY(-20px) rotate(0deg)} 100%{opacity:0;transform:translateY(100vh) rotate(720deg)} }
+
+  /* FOOTER */
+  footer { width:100%; text-align:center; font-size:12px; color:#777; padding:14px; border-top:1px solid #c8e6c9; background:#fff; margin-top:16px; }
+  footer strong { color:#2e7d32; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-guide">
+    <span class="robot">🤖</span>
+    <div class="bubble" id="guide-bubble">TOQUE EM DOIS LUGARES PARA VER O CAMINHO MAIS CURTO!</div>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- ESQUERDA — MAPA -->
+  <div class="col-map">
+    <div class="col-title">MAPA DA CIDADE</div>
+    <div class="instruction">
+      <div class="inst-step active" id="step1"><span class="step-num">1</span> PARTIDA</div>
+      <span style="font-size:14px;color:#aaa;">→</span>
+      <div class="inst-step" id="step2"><span class="step-num">2</span> DESTINO</div>
+    </div>
+    <canvas id="map-canvas"></canvas>
+    <div class="path-box" id="path-box">
+      <span class="path-hint">TOQUE EM DOIS LUGARES NO MAPA!</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-reset" onclick="resetMap()">🔄 LIMPAR</button>
+      <button class="btn btn-hint"  onclick="showHint()">💡 DICA</button>
+    </div>
+  </div>
+
+  <!-- DIREITA — QUIZ -->
+  <div class="col-quiz">
+    <div class="quiz-header">
+      <div class="quiz-header-title">ATIVIDADE</div>
+          </div>
+    <div class="quiz-body">
+      <div id="quiz-area"></div>
+      <div class="score-final" id="score-final">
+        <div class="sc-trophy" id="sc-trophy">🏆</div>
+        <div class="sc-nota"   id="sc-nota"></div>
+        <div class="sc-stars"  id="sc-stars"></div>
+        <div class="sc-msg"    id="sc-msg"></div>
+        <button class="btn-retry" onclick="restartQuiz()">🔄 TENTAR DE NOVO</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="celebrate" id="celebrate">🎉</div>
+<div class="confetti-wrap" id="confetti-wrap"></div>
+
+<footer>
+  <strong>Material Pedagógico — Profª Adriana Bett Terebinto © 2026</strong><br>
+  7º Ano — Educação Inclusiva | Caminhos em Grafos
+</footer>
+
+<script>
+// ── DADOS ─────────────────────────────────────────────────────
+const PLACES=[
+  {id:'home',    emoji:'🏠',label:'CASA',    cx:0.13,cy:0.72,color:'#1565c0'},
+  {id:'school',  emoji:'🏫',label:'ESCOLA',  cx:0.38,cy:0.22,color:'#6a1b9a'},
+  {id:'hospital',emoji:'🏥',label:'HOSPITAL',cx:0.72,cy:0.18,color:'#b71c1c'},
+  {id:'market',  emoji:'🛒',label:'MERCADO', cx:0.32,cy:0.74,color:'#e65100'},
+  {id:'park',    emoji:'🌳',label:'PARQUE',  cx:0.74,cy:0.65,color:'#2e7d32'},
+  {id:'bank',    emoji:'🏦',label:'BANCO',   cx:0.88,cy:0.36,color:'#4527a0'},
+];
+const EDGES=[
+  ['home','school',3],['home','market',5],
+  ['school','hospital',4],['school','market',2],['school','park',6],
+  ['hospital','park',3],['hospital','bank',5],
+  ['market','bank',4],['park','bank',2],
+];
+
+// ── CANVAS ────────────────────────────────────────────────────
+const canvas=document.getElementById('map-canvas');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){
+  W=canvas.parentElement.clientWidth;
+  H=Math.round(W*420/600);
+  canvas.width=W; canvas.height=H; draw();
+}
+window.addEventListener('resize',resize);
+function px(p){return[Math.round(p.cx*W),Math.round(p.cy*H)];}
+
+let selected=[],shortPath=[],shortDist=0,animProg=0,animating=false;
+
+function dijkstra(src,dst){
+  const ids=PLACES.map(p=>p.id),dist={},prev={},vis=new Set();
+  ids.forEach(id=>{dist[id]=Infinity;prev[id]=null;}); dist[src]=0;
+  while(true){
+    let u=null; ids.forEach(id=>{if(!vis.has(id)&&(u===null||dist[id]<dist[u]))u=id;});
+    if(!u||dist[u]===Infinity)break; vis.add(u);
+    EDGES.forEach(([a,b,w])=>{const nb=a===u?b:b===u?a:null;if(nb&&dist[u]+w<dist[nb]){dist[nb]=dist[u]+w;prev[nb]=u;}});
+  }
+  const path=[]; let v=dst; while(v){path.unshift(v);v=prev[v];}
+  return path[0]===src?{path,dist:dist[dst]}:null;
+}
+
+function draw(){ctx.clearRect(0,0,W,H);drawBg();drawEdges();drawAnimPath();drawNodes();}
+
+function drawBg(){
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#b3e5fc'); sky.addColorStop(1,'#e8f5e9');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#c8e6c9'; ctx.fillRect(0,H*0.55,W,H*0.45);
+  ctx.strokeStyle='rgba(200,200,200,0.45)'; ctx.lineWidth=16; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(0,H*0.76); ctx.lineTo(W,H*0.76); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W*0.35,0); ctx.lineTo(W*0.35,H); ctx.stroke();
+  [[W*0.1,H*0.1,0.65],[W*0.55,H*0.07,0.85],[W*0.82,H*0.12,0.55]].forEach(([x,y,s])=>{
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    [[0,0,20],[16,0,16],[-16,0,16],[0,-9,14]].forEach(([dx,dy,r])=>{ctx.beginPath();ctx.arc(x+dx*s,y+dy*s,r*s,0,Math.PI*2);ctx.fill();});
+  });
+  ctx.fillStyle='#ffe082'; ctx.beginPath(); ctx.arc(W*0.93,H*0.08,16,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#ffd54f'; ctx.lineWidth=2.5;
+  for(let a=0;a<8;a++){const ang=a*Math.PI/4;ctx.beginPath();ctx.moveTo(W*0.93+Math.cos(ang)*20,H*0.08+Math.sin(ang)*20);ctx.lineTo(W*0.93+Math.cos(ang)*26,H*0.08+Math.sin(ang)*26);ctx.stroke();}
+}
+
+function drawEdges(){
+  EDGES.forEach(([a,b,w])=>{
+    const pa=PLACES.find(p=>p.id===a),pb=PLACES.find(p=>p.id===b);
+    const[ax,ay]=px(pa),[bx,by]=px(pb);
+    const inPath=isEdgePath(a,b);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+    ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=9; ctx.lineCap='round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+    ctx.strokeStyle=inPath?'#fff9c4':'#eee'; ctx.lineWidth=6; ctx.stroke();
+    ctx.setLineDash([7,5]); ctx.strokeStyle='rgba(158,158,158,0.4)'; ctx.lineWidth=1.5; ctx.stroke(); ctx.setLineDash([]);
+    const mx=(ax+bx)/2,my=(ay+by)/2;
+    ctx.fillStyle=inPath?'#f9a825':'#fff';
+    ctx.beginPath(); ctx.ellipse(mx,my,13,9,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=inPath?'#f57f17':'#bdbdbd'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle=inPath?'#fff':'#555';
+    ctx.font=`bold ${Math.max(9,W/65)}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(w+'km',mx,my);
+  });
+}
+
+function isEdgePath(a,b){
+  for(let i=0;i<shortPath.length-1;i++){
+    if((shortPath[i]===a&&shortPath[i+1]===b)||(shortPath[i]===b&&shortPath[i+1]===a))return true;
+  }
+  return false;
+}
+
+function drawAnimPath(){
+  if(shortPath.length<2)return;
+  const prog=animating?animProg:1;
+  const pts=shortPath.map(id=>{const pl=PLACES.find(p=>p.id===id);return px(pl);});
+  const segs=[];let tot=0;
+  for(let i=0;i<pts.length-1;i++){const dx=pts[i+1][0]-pts[i][0],dy=pts[i+1][1]-pts[i][1];segs.push(Math.sqrt(dx*dx+dy*dy));tot+=segs[segs.length-1];}
+  let drawn=0,target=tot*prog;
+  ctx.save(); ctx.strokeStyle='#43a047'; ctx.lineWidth=5; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.setLineDash([11,5]); ctx.shadowColor='rgba(67,160,71,0.45)'; ctx.shadowBlur=7;
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=0;i<segs.length;i++){
+    if(drawn+segs[i]<=target){ctx.lineTo(pts[i+1][0],pts[i+1][1]);drawn+=segs[i];}
+    else{const t=(target-drawn)/segs[i];ctx.lineTo(pts[i][0]+(pts[i+1][0]-pts[i][0])*t,pts[i][1]+(pts[i+1][1]-pts[i][1])*t);break;}
+  }
+  ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur=0; ctx.restore();
+}
+
+function drawNodes(){
+  PLACES.forEach(place=>{
+    const[x,y]=px(place);
+    const isSel=selected.includes(place.id),inPath=shortPath.includes(place.id);
+    const isFirst=selected[0]===place.id,isLast=selected[1]===place.id;
+    const R=Math.max(20,W/21);
+    ctx.shadowColor='rgba(0,0,0,0.18)'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2);
+    ctx.fillStyle=isFirst?'#1565c0':isLast?'#c62828':inPath?'#43a047':'#fff';
+    ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle=isSel||inPath?'#fff':place.color; ctx.lineWidth=2.5; ctx.stroke();
+    if(isSel){ctx.beginPath();ctx.arc(x,y,R+6,0,Math.PI*2);ctx.strokeStyle=isFirst?'rgba(21,101,192,0.3)':'rgba(198,40,40,0.3)';ctx.lineWidth=4;ctx.stroke();}
+    ctx.font=`${Math.max(14,R*0.82)}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(place.emoji,x,y);
+    const labY=y+R+7; ctx.font=`bold ${Math.max(8,W/70)}px Arial`;
+    const tw=ctx.measureText(place.label).width;
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    rr(ctx,x-tw/2-5,labY,tw+10,13,4); ctx.fill();
+    ctx.fillStyle=isSel||inPath?place.color:'#333'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(place.label,x,labY+1);
+  });
+}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+
+function getClick(e){const rect=canvas.getBoundingClientRect(),sx=W/rect.width,sy=H/rect.height;let cx,cy;if(e.touches){cx=(e.touches[0].clientX-rect.left)*sx;cy=(e.touches[0].clientY-rect.top)*sy;}else{cx=(e.clientX-rect.left)*sx;cy=(e.clientY-rect.top)*sy;}return[cx,cy];}
+canvas.addEventListener('click',handleTap);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();handleTap(e);},{passive:false});
+
+function handleTap(e){
+  const[cx,cy]=getClick(e),R=Math.max(26,W/17);
+  const hit=PLACES.find(p=>{const[px2,py2]=px(p);return Math.hypot(cx-px2,cy-py2)<R;});
+  if(!hit)return;
+  if(selected.length===0){selected=[hit.id];stepUI(2);setGuide('AGORA TOQUE NO DESTINO!');tap();draw();}
+  else if(selected.length===1){if(selected[0]===hit.id)return;selected=[selected[0],hit.id];stepUI(3);calc();}
+}
+function calc(){
+  const res=dijkstra(selected[0],selected[1]);
+  if(!res){setGuide('SEM CAMINHO! TENTE OUTROS LUGARES.');draw();return;}
+  shortPath=res.path;shortDist=res.dist;
+  animRun(()=>{showPath(res.path,res.dist);celebrate();setGuide('ESSE E O CAMINHO MAIS CURTO!');});
+}
+function animRun(cb){animating=true;animProg=0;const dur=900,start=performance.now();
+  function step(now){animProg=Math.min((now-start)/dur,1);draw();if(animProg<1)requestAnimationFrame(step);else{animating=false;draw();if(cb)cb();}}
+  requestAnimationFrame(step);
+}
+function showPath(path,dist){
+  const box=document.getElementById('path-box');box.classList.add('has-path');box.innerHTML='';
+  path.forEach((id,i)=>{
+    const pl=PLACES.find(p=>p.id===id);
+    const nd=document.createElement('div');nd.className='path-node';nd.style.animationDelay=(i*0.12)+'s';nd.innerHTML=`<span>${pl.emoji}</span>`;box.appendChild(nd);
+    if(i<path.length-1){const ar=document.createElement('span');ar.className='path-arrow';ar.textContent='→';box.appendChild(ar);}
+  });
+  const b=document.createElement('div');b.className='dist-badge';b.innerHTML=`${dist} KM`;box.appendChild(b);
+}
+function resetMap(){
+  selected=[];shortPath=[];shortDist=0;animating=false;animProg=0;stepUI(1);
+  setGuide('TOQUE EM DOIS LUGARES PARA VER O CAMINHO MAIS CURTO!');
+  const box=document.getElementById('path-box');box.classList.remove('has-path');
+  box.innerHTML='<span class="path-hint">TOQUE EM DOIS LUGARES NO MAPA!</span>';draw();
+}
+function showHint(){
+  const h=['TENTE: CASA → HOSPITAL','TENTE: ESCOLA → BANCO','TENTE: MERCADO → PARQUE','TENTE: CASA → BANCO'];
+  setGuide(h[Math.floor(Math.random()*h.length)]);
+}
+function stepUI(a){const s1=document.getElementById('step1'),s2=document.getElementById('step2');if(a===1){s1.className='inst-step active';s2.className='inst-step';}else if(a===2){s1.className='inst-step done';s2.className='inst-step active';}else{s1.className='inst-step done';s2.className='inst-step done';}}
+function setGuide(m){document.getElementById('guide-bubble').textContent=m;}
+function tap(){try{const ac=new AudioContext(),osc=ac.createOscillator(),g=ac.createGain();osc.connect(g);g.connect(ac.destination);osc.frequency.value=520;g.gain.setValueAtTime(0.18,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.25);osc.start();osc.stop(ac.currentTime+0.25);}catch(e){}}
+function celebrate(){const el=document.getElementById('celebrate');el.classList.add('show');confettiGo();setTimeout(()=>el.classList.remove('show'),1200);}
+function confettiGo(){const w=document.getElementById('confetti-wrap');w.innerHTML='';const cols=['#ef5350','#42a5f5','#66bb6a','#ffa726','#ab47bc','#26c6da','#fdd835'];for(let i=0;i<28;i++){const c=document.createElement('div');c.className='conf';c.style.left=Math.random()*100+'%';c.style.top='-20px';c.style.background=cols[i%cols.length];c.style.animationDelay=(Math.random()*0.5)+'s';c.style.animationDuration=(1+Math.random()*0.6)+'s';c.style.transform=`rotate(${Math.random()*360}deg)`;w.appendChild(c);}setTimeout(()=>w.innerHTML='',2000);}
+
+// ── QUIZ ──────────────────────────────────────────────────────
+const QUIZ = [
+  {
+    q: 'DA CASA ATÉ A ESCOLA, QUANTOS KM SÃO?',
+    opts:[
+      { label:'2 KM',  correct:false },
+      { label:'3 KM',  correct:true  },
+      { label:'5 KM',  correct:false },
+    ]
+  },
+  {
+    q: 'QUANTOS LUGARES TEM NO MAPA DA CIDADE?',
+    opts:[
+      { label:'4 LUGARES', correct:false },
+      { label:'5 LUGARES', correct:false },
+      { label:'6 LUGARES', correct:true  },
+    ]
+  },
+  {
+    q: 'DO PARQUE ATÉ O BANCO, QUANTOS KM SÃO?',
+    opts:[
+      { label:'2 KM', correct:true  },
+      { label:'4 KM', correct:false },
+      { label:'6 KM', correct:false },
+    ]
+  },
+  {
+    q: 'DA ESCOLA ATÉ O HOSPITAL, QUANTOS KM SÃO?',
+    opts:[
+      { label:'2 KM', correct:false },
+      { label:'4 KM', correct:true  },
+      { label:'6 KM', correct:false },
+    ]
+  },
+   {
+    q: 'QUAL É O CAMINHO MAIS CURTO DO MERCADO ATÉ O PARQUE?',
+    opts:[
+      { label:'MERCADO → BANCO → PARQUE  (4+2 = 6 KM)',          correct:true  },
+      { label:'MERCADO → ESCOLA → PARQUE  (2+6 = 8 KM)',         correct:false },
+      { label:'MERCADO → CASA → ESCOLA → PARQUE  (5+3+6=14 KM)', correct:false },
+    ]
+  },
+];
+
+let qIdx=0,qScore=0,qAnswered=false;
+
+function buildQuiz(){
+  qIdx=0;qScore=0;qAnswered=false;
+  document.getElementById('score-final').style.display='none';
+  document.getElementById('quiz-area').style.display='block';
+  renderQ();
+}
+
+function renderQ(){
+  qAnswered=false;
+  const q=QUIZ[qIdx];
+  const area=document.getElementById('quiz-area');
+  const pct=Math.round(qIdx/QUIZ.length*100);
+  area.innerHTML=`
+    <div class="q-meta">
+      <span class="q-counter">PERGUNTA ${qIdx+1} DE ${QUIZ.length}</span>
+      <span class="q-pts">${qScore} ACERTO${qScore!==1?'S':''}</span>
+    </div>
+    <div class="q-bar"><div class="q-fill" style="width:${pct}%"></div></div>
+    <div class="q-text">${q.q}</div>
+    <div class="opts-col" id="opts-col"></div>
+    <div id="q-feedback"></div>
+  `;
+  const col=document.getElementById('opts-col');
+  q.opts.forEach((opt,i)=>{
+    const btn=document.createElement('button');
+    btn.className='opt-btn';
+    btn.innerHTML=`<span class="opt-label">${opt.label}</span>`;
+    btn.addEventListener('click',()=>doAnswer(opt.correct,btn,col,i));
+    col.appendChild(btn);
+  });
+}
+
+function doAnswer(correct,btn,col,idx){
+  if(qAnswered)return;
+  qAnswered=true;
+  col.querySelectorAll('.opt-btn').forEach(b=>b.disabled=true);
+  if(correct){
+    btn.classList.add('correct');qScore++;
+    setFeedback(true);snd(true);confettiGo();
+  } else {
+    btn.classList.add('wrong');
+    col.querySelectorAll('.opt-btn').forEach((b,i)=>{if(QUIZ[qIdx].opts[i].correct)b.classList.add('correct');});
+    setFeedback(false);snd(false);
+  }
+  setTimeout(()=>{qIdx++;if(qIdx>=QUIZ.length)showFinal();else renderQ();},2000);
+}
+
+function setFeedback(ok){
+  const fb=document.getElementById('q-feedback');
+  fb.className='q-feedback '+(ok?'ok':'fail');
+  fb.textContent=ok?'MUITO BEM! ACERTOU!':'NÃO É ESSA. CONTINUE TENTANDO!';
+}
+
+function showFinal(){
+  document.getElementById('quiz-area').style.display='none';
+  document.getElementById('score-final').style.display='block';
+  const pct=qScore/QUIZ.length,nota=(pct*10).toFixed(1);
+  const stars=pct>=0.9?'⭐⭐⭐':pct>=0.6?'⭐⭐':'⭐';
+  let trophy,msg;
+  if(pct===1)      {trophy='🏆';msg='PERFEITO! NOTA 10!';}
+  else if(pct>=0.8){trophy='🥇';msg='MUITO BEM!';}
+  else if(pct>=0.6){trophy='🥈';msg='BOM TRABALHO!';}
+  else             {trophy='💙';msg='CONTINUE TENTANDO!';}
+  document.getElementById('sc-trophy').textContent=trophy;
+  document.getElementById('sc-nota').textContent='NOTA: '+nota+' / 10';
+  document.getElementById('sc-stars').textContent=stars;
+  document.getElementById('sc-msg').textContent=msg;
+  confettiGo(); setTimeout(confettiGo,600);
+}
+
+function restartQuiz(){buildQuiz();}
+
+function snd(ok){
+  try{const ac=new AudioContext(),osc=ac.createOscillator(),g=ac.createGain();
+    osc.connect(g);g.connect(ac.destination);
+    if(ok){[523,659,784,1047].forEach((n,i)=>osc.frequency.setValueAtTime(n,ac.currentTime+i*0.12));}
+    else{osc.frequency.setValueAtTime(350,ac.currentTime);osc.frequency.setValueAtTime(280,ac.currentTime+0.2);}
+    g.gain.setValueAtTime(0.22,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.7);
+    osc.start();osc.stop(ac.currentTime+0.7);}catch(e){}
+}
+
+buildQuiz();
+resize();
+</script>
+</body>
+</html>
